@@ -1,0 +1,119 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "模块名称 API",
+    "description": "API接口描述",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/example": {
+      "get": {
+        "summary": "接口摘要",
+        "description": "接口详细描述",
+        "tags": ["模块名"],
+        "operationId": "operationId",
+        "parameters": [
+          {
+            "name": "param_name",
+            "in": "query",
+            "description": "参数描述",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "example_value"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功响应",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseModel"
+                },
+                "example": {
+                  "field": "value"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ResponseModel": {
+        "type": "object",
+        "description": "响应数据模型",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID字段"
+          },
+          "name": {
+            "type": "string",
+            "description": "名称"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "创建时间"
+          }
+        },
+        "required": ["id", "name"]
+      },
+      "Error": {
+        "type": "object",
+        "description": "错误响应",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "错误信息"
+          }
+        },
+        "required": ["error"]
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "使用JWT Bearer Token进行认证"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "模块名",
+      "description": "模块功能描述"
+    }
+  ]
+}
