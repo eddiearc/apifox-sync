@@ -11,7 +11,7 @@
     {
       "name": "apifox-sync",
       "description": "从代码中提取 API 定义并同步到 Apifox",
-      "source": ".",
+      "source": "./",
       "category": "skills",
       "version": "1.0.0"
     }
