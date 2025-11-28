@@ -1,14 +1,19 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "schemaVersion": 1,
   "name": "apifox-sync",
+  "version": "1.0.0",
   "description": "从代码中提取 API 定义并同步到 Apifox",
-  "skills": [
+  "owner": {
+    "name": "eddiearc"
+  },
+  "plugins": [
     {
-      "id": "apifox-sync",
       "name": "apifox-sync",
       "description": "从代码中提取 API 定义并同步到 Apifox",
-      "path": ".",
-      "branch": "main"
+      "source": ".",
+      "category": "skills",
+      "version": "1.0.0"
     }
   ]
 }
