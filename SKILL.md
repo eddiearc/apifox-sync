@@ -70,17 +70,51 @@ description: 从代码中提取API接口定义，生成标准OpenAPI 3.0文档�
 
 ### 步骤3：上传到Apifox
 
-**使用同步脚本**：
+**⚠️ 重要：先检查环境变量，不要直接询问用户**
+
+在调用同步脚本前，必须先自动检查环境变量是否已配置：
 
 ```bash
-# 方式1: 直接调用脚本
-cd ~/.claude/skills/apifox-sync/scripts
-./sync-to-apifox.sh --file "/path/to/generated-openapi.json"
+# 先 source shell 配置文件加载环境变量
+source ~/.zshrc 2>/dev/null || source ~/.bashrc 2>/dev/null
 
-# 方式2: 使用环境变量
+# 检查环境变量是否存在
+if [ -n "$APIFOX_TOKEN" ] && [ -n "$APIFOX_PROJECT_ID" ]; then
+    echo "✅ 环境变量已配置"
+else
+    echo "❌ 环境变量未配置"
+fi
+```
+
+**工作流程**：
+1. **自动检查**：先 `source ~/.zshrc` 加载环境变量，然后检查 `APIFOX_TOKEN` 和 `APIFOX_PROJECT_ID`
+2. **已配置**：直接调用同步脚本，无需询问用户
+3. **未配置**：提示用户配置，并建议添加到 `~/.zshrc` 或 `~/.bashrc` 中永久生效
+
+**使用同步脚本**（必须先 source shell 配置）：
+
+```bash
+# 正确方式：先 source 再调用
+source ~/.zshrc 2>/dev/null || source ~/.bashrc 2>/dev/null
+~/.claude/skills/apifox-sync/scripts/sync-to-apifox.sh --file "/path/to/openapi.json"
+```
+
+**如果环境变量未配置，提示用户**：
+```
+❌ Apifox 凭证未配置
+
+请将以下内容添加到 ~/.zshrc（或 ~/.bashrc）中：
+
 export APIFOX_TOKEN="your_token"
 export APIFOX_PROJECT_ID="your_project_id"
-./sync-to-apifox.sh --file "./openapi.json"
+
+然后执行 source ~/.zshrc 使其生效。
+
+获取凭证：
+- Token: https://apifox-openapi.apifox.cn/doc-4296599
+- Project ID: 项目 URL 中的数字，如 https://app.apifox.com/project/1234567
+
+配置到系统环境变量后，后续同步将自动使用，无需重复设置。
 ```
 
 脚本会自动：
@@ -190,21 +224,27 @@ router.delete('/:topic_id', handler.delete)
 
 ## 凭证配置
 
-使用 `scripts/setup.sh` 交互式配置：
-```bash
-cd ~/.claude/skills/apifox-sync/scripts
-./setup.sh
-```
+**推荐：配置到系统环境变量（一次配置，永久生效）**
 
-或手动设置环境变量：
+将以下内容添加到 `~/.zshrc`（macOS/Linux zsh）或 `~/.bashrc`（bash）：
+
 ```bash
+# Apifox API 凭证
 export APIFOX_TOKEN="apifox_xxx"
 export APIFOX_PROJECT_ID="1234567"
 ```
 
+然后执行 `source ~/.zshrc` 使其生效。
+
 **获取凭证**：
-- Token: Apifox → 个人设置 → API 访问令牌
+- Token: https://apifox-openapi.apifox.cn/doc-4296599 （Apifox 官方文档）
 - Project ID: 项目 URL 中的数字，如 `https://app.apifox.com/project/1234567`
+
+**交互式配置**（可选）：
+```bash
+cd ~/.claude/skills/apifox-sync/scripts
+./setup.sh
+```
 
 ## 常见错误
 
