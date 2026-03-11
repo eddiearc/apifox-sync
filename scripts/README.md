@@ -16,16 +16,37 @@ Apifox 同步工具脚本集合，用于自动化 API 文档的提取和同步�
 
 ## sync-to-apifox.sh - 详细说明
 
-#### 环境变量配置
+#### 配置方式
 
-在使用脚本前，需要设置以下环境变量：
+推荐采用“两层配置”：
+
+1. 全局环境变量只保存 `APIFOX_TOKEN`
+2. 当前仓库通过 `git config --local apifox.project-id` 绑定目标 Apifox 项目
+
+```bash
+# 全局 Token
+export APIFOX_TOKEN="apifox_xxx"
+
+# 在目标仓库内执行
+git config --local apifox.project-id "4032930"
+git config --local apifox.endpoint-folder-id "76"
+git config --local apifox.schema-folder-id "60"
+```
+
+脚本按以下顺序解析目标项目：
+
+1. `--project-id`
+2. 当前仓库的 `git config --local apifox.project-id`
+3. `APIFOX_PROJECT_ID` 兼容兜底
+
+兼容环境变量如下：
 
 ```bash
 # 必需的环境变量
 export APIFOX_TOKEN="apifox_xxx"          # 从 Apifox 获取的 Access Token
-export APIFOX_PROJECT_ID="1234567"        # Apifox 项目 ID
 
-# 可选的环境变量
+# 兼容兜底，不推荐长期使用
+export APIFOX_PROJECT_ID="1234567"        # Apifox 项目 ID
 export APIFOX_ENDPOINT_FOLDER_ID="76"     # 接口目标文件夹 ID
 export APIFOX_SCHEMA_FOLDER_ID="60"       # Schema 目标文件夹 ID
 export APIFOX_ENDPOINT_OVERWRITE="OVERWRITE_EXISTING"  # 接口覆盖策略
@@ -59,6 +80,12 @@ export APIFOX_SCHEMA_OVERWRITE="KEEP_EXISTING"  # Schema 覆盖策略
 
 ```bash
 ./sync-to-apifox.sh --file "./my-api-openapi.json"
+```
+
+##### 查看解析后的配置
+
+```bash
+./sync-to-apifox.sh --print-config
 ```
 
 ##### 使用自定义覆盖策略
@@ -95,20 +122,22 @@ export APIFOX_SCHEMA_OVERWRITE="KEEP_EXISTING"  # Schema 覆盖策略
 ```bash
 #!/bin/bash
 
-# 1. 设置环境变量
+# 1. 设置全局 Token
 export APIFOX_TOKEN="apifox_xxxxxxxxxxxxxx"
-export APIFOX_PROJECT_ID="1234567"
 
-# 2. 从本地文件同步（完全同步模式）
+# 2. 在当前仓库绑定 Apifox 项目
+git config --local apifox.project-id "1234567"
+
+# 3. 从本地文件同步（完全同步模式）
 ./sync-to-apifox.sh --file "./openapi.json"
 
-# 3. 从 URL 同步（保留模式）
+# 4. 从 URL 同步（保留模式）
 ./sync-to-apifox.sh \
   --url "https://example.com/openapi.json" \
   --endpoint-overwrite MERGE_IF_NOT_EXISTS \
   --schema-overwrite KEEP_EXISTING
 
-# 4. 同步到指定文件夹
+# 5. 同步到指定文件夹
 ./sync-to-apifox.sh \
   --file "./openapi.json" \
   --endpoint-folder 76 \
@@ -123,7 +152,7 @@ export APIFOX_PROJECT_ID="1234567"
 ```bash
 # 直接从 URL 同步到 Apifox
 export APIFOX_TOKEN="your_token"
-export APIFOX_PROJECT_ID="your_project_id"
+git config --local apifox.project-id "your_project_id"
 
 ./sync-to-apifox.sh --url "https://your-api.com/swagger.json"
 ```
@@ -136,26 +165,24 @@ export APIFOX_PROJECT_ID="your_project_id"
 
 # 2. 同步生成的文档到 Apifox
 export APIFOX_TOKEN="your_token"
-export APIFOX_PROJECT_ID="your_project_id"
+git config --local apifox.project-id "your_project_id"
 ./sync-to-apifox.sh --file "./generated-openapi.json"
 ```
 
 ## 配置文件方式
 
-除了环境变量，也可以创建配置文件：
+全局 Token 可以放在配置文件，但 project-id 仍然建议绑定到仓库：
 
 ```bash
 # ~/.apifox/config.sh
 export APIFOX_TOKEN="apifox_xxx"
-export APIFOX_PROJECT_ID="1234567"
-export APIFOX_ENDPOINT_FOLDER_ID="76"
-export APIFOX_SCHEMA_FOLDER_ID="60"
 ```
 
 使用时 source 配置文件：
 
 ```bash
 source ~/.apifox/config.sh
+git config --local apifox.project-id "1234567"
 ./sync-to-apifox.sh --file "./openapi.json"
 ```
 
@@ -166,8 +193,8 @@ source ~/.apifox/config.sh
 - **解决**: 重新生成 Access Token
 
 ### 404 Not Found
-- **原因**: 项目 ID 错误
-- **解决**: 检查项目 URL 中的 ID
+- **原因**: 项目 ID 错误，或当前仓库绑定错了项目
+- **解决**: 运行 `./sync-to-apifox.sh --print-config` 检查解析结果
 
 ### 400 Bad Request
 - **原因**: OpenAPI 格式错误
@@ -180,9 +207,10 @@ source ~/.apifox/config.sh
 ## 注意事项
 
 1. **Token 安全**: 不要将 Token 提交到版本控制系统
-2. **覆盖策略**: 默认使用 `OVERWRITE_EXISTING` 会覆盖已有接口，可使用 `MERGE_IF_NOT_EXISTS` 保留现有接口
-3. **API 版本**: 脚本使用 Apifox API v1，版本号为 2024-03-28
-4. **OpenAPI 版本**: 推荐使用 OpenAPI 3.0.0 格式，兼容性最好
+2. **项目隔离**: 不要把 `APIFOX_PROJECT_ID` 长期放在全局环境变量里，优先使用仓库级 git config
+3. **覆盖策略**: 默认使用 `OVERWRITE_EXISTING` 会覆盖已有接口，可使用 `MERGE_IF_NOT_EXISTS` 保留现有接口
+4. **API 版本**: 脚本使用 Apifox API v1，版本号为 2024-03-28
+5. **OpenAPI 版本**: 推荐使用 OpenAPI 3.0.0 格式，兼容性最好
 
 ## 依赖要求
 

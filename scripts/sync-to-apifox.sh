@@ -2,11 +2,12 @@
 # Apifox OpenAPI 同步脚本
 # 用于将 OpenAPI 文档同步到 Apifox 平台
 #
-# 环境变量要求:
-#   APIFOX_TOKEN          - Apifox Access Token (必需)
-#   APIFOX_PROJECT_ID     - Apifox 项目 ID (必需)
-#   APIFOX_ENDPOINT_FOLDER_ID  - 接口目标文件夹 ID (可选，默认为根目录)
-#   APIFOX_SCHEMA_FOLDER_ID    - Schema 目标文件夹 ID (可选，默认为根目录)
+# 配置要求:
+#   APIFOX_TOKEN               - Apifox Access Token (必需，全局凭证)
+#   项目配置优先级:
+#     1. --project-id / --endpoint-folder / --schema-folder 显式传参
+#     2. 当前仓库 git config --local 中的 apifox.* 配置
+#     3. APIFOX_PROJECT_ID / APIFOX_ENDPOINT_FOLDER_ID / APIFOX_SCHEMA_FOLDER_ID (兼容兜底)
 #
 # 使用方法:
 #   1. 从 URL 导入:
@@ -17,6 +18,9 @@
 #
 #   3. 自定义覆盖策略:
 #      ./sync-to-apifox.sh --file "./openapi.json" --endpoint-overwrite MERGE_IF_NOT_EXISTS --schema-overwrite KEEP_EXISTING
+#
+#   4. 一次性覆盖目标项目:
+#      ./sync-to-apifox.sh --file "./openapi.json" --project-id 4032930
 #
 # 覆盖策略选项:
 #   endpoint-overwrite: OVERWRITE_EXISTING (默认) | MERGE_IF_NOT_EXISTS | ONLY_NEW
@@ -42,6 +46,12 @@ SCHEMA_OVERWRITE_BEHAVIOR="${APIFOX_SCHEMA_OVERWRITE:-OVERWRITE_EXISTING}"
 UPDATE_FOLDER="${APIFOX_UPDATE_FOLDER:-false}"
 PREPEND_BASE_PATH="${APIFOX_PREPEND_BASE_PATH:-false}"
 
+PROJECT_ID=""
+PROJECT_ID_SOURCE=""
+REPO_ROOT=""
+REPO_ROOT_OVERRIDE=""
+PRINT_CONFIG_ONLY="false"
+
 # 显示帮助信息
 show_help() {
     cat << EOF
@@ -54,21 +64,30 @@ ${YELLOW}用法:${NC}
 ${YELLOW}选项:${NC}
     --url <URL>                       OpenAPI 文档的 URL 地址
     --file <FILE>                     本地 OpenAPI 文档文件路径
+    --project-id <ID>                 显式指定 Apifox 项目 ID（最高优先级）
     --endpoint-overwrite <STRATEGY>   接口覆盖策略 (默认: OVERWRITE_EXISTING)
                                       可选值: OVERWRITE_EXISTING | MERGE_IF_NOT_EXISTS | ONLY_NEW
     --schema-overwrite <STRATEGY>     Schema 覆盖策略 (默认: OVERWRITE_EXISTING)
                                       可选值: KEEP_EXISTING | OVERWRITE_IF_DIFFERENT | OVERWRITE_EXISTING
     --endpoint-folder <ID>            接口目标文件夹 ID
     --schema-folder <ID>              Schema 目标文件夹 ID
+    --repo-root <PATH>                显式指定仓库根目录，用于读取 repo-local 配置
+    --print-config                    只打印解析后的配置，不执行上传
     --no-update-folder                不更新已变更接口的文件夹位置
     --no-prepend-base-path            不在接口路径前添加 basePath
     -h, --help                        显示此帮助信息
 
 ${YELLOW}环境变量:${NC}
-    APIFOX_TOKEN                      Apifox Access Token (必需)
-    APIFOX_PROJECT_ID                 Apifox 项目 ID (必需)
-    APIFOX_ENDPOINT_FOLDER_ID         接口目标文件夹 ID (可选)
-    APIFOX_SCHEMA_FOLDER_ID           Schema 目标文件夹 ID (可选)
+    APIFOX_TOKEN                      Apifox Access Token (必需，全局凭证)
+    APIFOX_PROJECT_ID                 Apifox 项目 ID (兼容兜底，不推荐)
+    APIFOX_ENDPOINT_FOLDER_ID         接口目标文件夹 ID (兼容兜底)
+    APIFOX_SCHEMA_FOLDER_ID           Schema 目标文件夹 ID (兼容兜底)
+
+${YELLOW}推荐配置方式:${NC}
+    # 在仓库内绑定项目，避免多个仓库共用一个全局 PROJECT_ID
+    git config --local apifox.project-id 4032930
+    git config --local apifox.endpoint-folder-id 76
+    git config --local apifox.schema-folder-id 60
 
 ${YELLOW}覆盖策略说明:${NC}
     接口覆盖策略 (endpoint-overwrite):
@@ -82,9 +101,11 @@ ${YELLOW}覆盖策略说明:${NC}
         - OVERWRITE_IF_DIFFERENT:   仅在不同时覆盖
 
 ${YELLOW}示例:${NC}
-    # 设置环境变量
+    # 设置全局 Token
     export APIFOX_TOKEN="apifox_xxx"
-    export APIFOX_PROJECT_ID="1234567"
+
+    # 在当前仓库设置 Apifox 项目绑定（推荐）
+    git config --local apifox.project-id 1234567
 
     # 从 URL 导入
     $0 --url "https://petstore.swagger.io/v2/swagger.json"
@@ -122,14 +143,82 @@ info() {
     echo -e "${BLUE}ℹ️  $1${NC}"
 }
 
-# 检查必需的环境变量
-check_env() {
-    if [ -z "$APIFOX_TOKEN" ]; then
+# 解析仓库根目录。优先使用显式传入的 repo-root，其次使用当前目录，
+# 如果当前目录不在仓库内，再尝试根据 --file 参数定位所属仓库。
+resolve_repo_root() {
+    if [ -n "$REPO_ROOT_OVERRIDE" ]; then
+        if [ -d "$REPO_ROOT_OVERRIDE/.git" ] || git -C "$REPO_ROOT_OVERRIDE" rev-parse --show-toplevel &> /dev/null; then
+            git -C "$REPO_ROOT_OVERRIDE" rev-parse --show-toplevel 2>/dev/null || echo "$REPO_ROOT_OVERRIDE"
+            return 0
+        fi
+        error_exit "--repo-root 指向的目录不是 git 仓库: $REPO_ROOT_OVERRIDE"
+    fi
+
+    if git rev-parse --show-toplevel &> /dev/null; then
+        git rev-parse --show-toplevel
+        return 0
+    fi
+
+    if [ "$INPUT_TYPE" = "file" ] && [ -n "$INPUT_VALUE" ]; then
+        local input_dir
+        input_dir=$(cd "$(dirname "$INPUT_VALUE")" 2>/dev/null && pwd)
+        if [ -n "$input_dir" ] && git -C "$input_dir" rev-parse --show-toplevel &> /dev/null; then
+            git -C "$input_dir" rev-parse --show-toplevel
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+load_repo_config() {
+    REPO_ROOT=$(resolve_repo_root || true)
+    if [ -z "$REPO_ROOT" ]; then
+        return 0
+    fi
+
+    if [ -z "$PROJECT_ID" ]; then
+        local repo_project_id
+        repo_project_id=$(git -C "$REPO_ROOT" config --local --get apifox.project-id || true)
+        if [ -n "$repo_project_id" ]; then
+            PROJECT_ID="$repo_project_id"
+            PROJECT_ID_SOURCE="git local config ($REPO_ROOT)"
+        fi
+    fi
+
+    if [ -z "$TARGET_ENDPOINT_FOLDER_ID" ]; then
+        TARGET_ENDPOINT_FOLDER_ID=$(git -C "$REPO_ROOT" config --local --get apifox.endpoint-folder-id || true)
+    fi
+
+    if [ -z "$TARGET_SCHEMA_FOLDER_ID" ]; then
+        TARGET_SCHEMA_FOLDER_ID=$(git -C "$REPO_ROOT" config --local --get apifox.schema-folder-id || true)
+    fi
+}
+
+load_legacy_env_config() {
+    if [ -z "$PROJECT_ID" ] && [ -n "$APIFOX_PROJECT_ID" ]; then
+        PROJECT_ID="$APIFOX_PROJECT_ID"
+        PROJECT_ID_SOURCE="legacy env APIFOX_PROJECT_ID"
+        warning "使用了全局 APIFOX_PROJECT_ID 兜底。建议改为在仓库内执行: git config --local apifox.project-id <project_id>"
+    fi
+
+    if [ -z "$TARGET_ENDPOINT_FOLDER_ID" ] && [ -n "$APIFOX_ENDPOINT_FOLDER_ID" ]; then
+        TARGET_ENDPOINT_FOLDER_ID="$APIFOX_ENDPOINT_FOLDER_ID"
+    fi
+
+    if [ -z "$TARGET_SCHEMA_FOLDER_ID" ] && [ -n "$APIFOX_SCHEMA_FOLDER_ID" ]; then
+        TARGET_SCHEMA_FOLDER_ID="$APIFOX_SCHEMA_FOLDER_ID"
+    fi
+}
+
+# 检查必需配置
+check_required_config() {
+    if [ "$PRINT_CONFIG_ONLY" != "true" ] && [ -z "$APIFOX_TOKEN" ]; then
         error_exit "未设置 APIFOX_TOKEN 环境变量。请使用: export APIFOX_TOKEN=\"your_token\""
     fi
 
-    if [ -z "$APIFOX_PROJECT_ID" ]; then
-        error_exit "未设置 APIFOX_PROJECT_ID 环境变量。请使用: export APIFOX_PROJECT_ID=\"your_project_id\""
+    if [ -z "$PROJECT_ID" ]; then
+        error_exit "未找到 Apifox 项目 ID。请使用以下任一方式配置:\n1. 在当前仓库执行: git config --local apifox.project-id \"your_project_id\"\n2. 运行脚本时传入: --project-id \"your_project_id\"\n3. 临时兼容方式: export APIFOX_PROJECT_ID=\"your_project_id\""
     fi
 }
 
@@ -142,6 +231,17 @@ check_dependencies() {
     if ! command -v jq &> /dev/null; then
         warning "jq 未安装。将无法格式化输出 JSON。建议安装 jq: brew install jq"
     fi
+}
+
+print_resolved_config() {
+    info "解析后的 Apifox 配置:"
+    echo "  项目 ID: ${PROJECT_ID:-<未设置>}"
+    echo "  项目来源: ${PROJECT_ID_SOURCE:-<未设置>}"
+    echo "  仓库根目录: ${REPO_ROOT:-<未检测到>}"
+    echo "  接口目标文件夹: ${TARGET_ENDPOINT_FOLDER_ID:-<根目录>}"
+    echo "  Schema 目标文件夹: ${TARGET_SCHEMA_FOLDER_ID:-<根目录>}"
+    echo "  接口覆盖策略: $ENDPOINT_OVERWRITE_BEHAVIOR"
+    echo "  Schema 覆盖策略: $SCHEMA_OVERWRITE_BEHAVIOR"
 }
 
 # 执行同步
@@ -209,7 +309,9 @@ EOF
 
     echo ""
     info "同步配置:"
-    echo "  项目 ID: $APIFOX_PROJECT_ID"
+    echo "  项目 ID: $PROJECT_ID"
+    [ -n "$PROJECT_ID_SOURCE" ] && echo "  项目来源: $PROJECT_ID_SOURCE"
+    [ -n "$REPO_ROOT" ] && echo "  仓库根目录: $REPO_ROOT"
     echo "  接口覆盖策略: $ENDPOINT_OVERWRITE_BEHAVIOR"
     echo "  Schema 覆盖策略: $SCHEMA_OVERWRITE_BEHAVIOR"
     [ -n "$TARGET_ENDPOINT_FOLDER_ID" ] && echo "  接口目标文件夹: $TARGET_ENDPOINT_FOLDER_ID"
@@ -218,7 +320,7 @@ EOF
 
     # 发送请求
     info "正在上传..."
-    local api_url="${API_BASE_URL}/projects/${APIFOX_PROJECT_ID}/import-openapi?locale=${LOCALE}"
+    local api_url="${API_BASE_URL}/projects/${PROJECT_ID}/import-openapi?locale=${LOCALE}"
 
     local response
     local http_code
@@ -249,7 +351,7 @@ EOF
             fi
 
             echo ""
-            info "查看文档: https://app.apifox.com/project/${APIFOX_PROJECT_ID}"
+            info "查看文档: https://app.apifox.com/project/${PROJECT_ID}"
             ;;
         401)
             error_exit "认证失败 (401)。请检查 APIFOX_TOKEN 是否有效。"
@@ -258,7 +360,7 @@ EOF
             error_exit "权限不足 (403)。请确保 Token 有项目的编辑权限。"
             ;;
         404)
-            error_exit "项目不存在 (404)。请检查 APIFOX_PROJECT_ID 是否正确。"
+            error_exit "项目不存在 (404)。请检查 project-id 是否正确，或确认当前仓库的 apifox.project-id 配置。"
             ;;
         400)
             error_exit "请求无效 (400)。响应内容:\n$response_body"
@@ -272,8 +374,8 @@ EOF
 # 解析命令行参数
 INPUT_TYPE=""
 INPUT_VALUE=""
-TARGET_ENDPOINT_FOLDER_ID="${APIFOX_ENDPOINT_FOLDER_ID:-}"
-TARGET_SCHEMA_FOLDER_ID="${APIFOX_SCHEMA_FOLDER_ID:-}"
+TARGET_ENDPOINT_FOLDER_ID=""
+TARGET_SCHEMA_FOLDER_ID=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -285,6 +387,11 @@ while [[ $# -gt 0 ]]; do
         --file)
             INPUT_TYPE="file"
             INPUT_VALUE="$2"
+            shift 2
+            ;;
+        --project-id)
+            PROJECT_ID="$2"
+            PROJECT_ID_SOURCE="cli --project-id"
             shift 2
             ;;
         --endpoint-overwrite)
@@ -302,6 +409,14 @@ while [[ $# -gt 0 ]]; do
         --schema-folder)
             TARGET_SCHEMA_FOLDER_ID="$2"
             shift 2
+            ;;
+        --repo-root)
+            REPO_ROOT_OVERRIDE="$2"
+            shift 2
+            ;;
+        --print-config)
+            PRINT_CONFIG_ONLY="true"
+            shift
             ;;
         --no-update-folder)
             UPDATE_FOLDER="false"
@@ -330,13 +445,20 @@ main() {
     echo ""
 
     # 检查参数
-    if [ -z "$INPUT_TYPE" ]; then
+    if [ "$PRINT_CONFIG_ONLY" != "true" ] && [ -z "$INPUT_TYPE" ]; then
         error_exit "缺少必需参数。使用 --url 或 --file 指定输入源。\n使用 --help 查看帮助信息。"
     fi
 
     # 检查依赖和环境
     check_dependencies
-    check_env
+    load_repo_config
+    load_legacy_env_config
+    check_required_config
+
+    if [ "$PRINT_CONFIG_ONLY" = "true" ]; then
+        print_resolved_config
+        exit 0
+    fi
 
     # 执行同步
     sync_to_apifox "$INPUT_TYPE" "$INPUT_VALUE"

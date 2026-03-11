@@ -1,6 +1,6 @@
 ---
 name: apifox-sync
-description: 从代码中提取API接口定义，生成标准OpenAPI 3.0文档，并上传同步到Apifox平台。当用户提到"同步接口"、"上传到apifox"、"导入API文档"、"更新接口文档"时使用。支持从Go/Python/Node.js的handler文件中提取接口。
+description: Use when需要把当前仓库的 REST API 变更同步到 Apifox，尤其是新增或修改 handler、route、model、OpenAPI 文档，或用户提到“同步接口”“上传到 apifox”“导入 API 文档”“更新接口文档”时。
 ---
 
 # Apifox Sync - API接口自动同步工具
@@ -70,55 +70,62 @@ description: 从代码中提取API接口定义，生成标准OpenAPI 3.0文档�
 
 ### 步骤3：上传到Apifox
 
-**⚠️ 重要：先检查环境变量，不要直接询问用户**
+**⚠️ 重要：区分“全局凭证”和“仓库绑定”**
 
-在调用同步脚本前，必须先自动检查环境变量是否已配置：
+- `APIFOX_TOKEN` 是用户级凭证，适合保存在 `~/.zshrc`、`~/.bashrc` 或 `~/.apifox/config.sh`
+- `project-id` 是仓库级绑定，不应该放进全局 shell 环境变量
 
-```bash
-# 先 source shell 配置文件加载环境变量
-source ~/.zshrc 2>/dev/null || source ~/.bashrc 2>/dev/null
+在调用同步脚本前，按以下顺序解析目标项目：
 
-# 检查环境变量是否存在
-if [ -n "$APIFOX_TOKEN" ] && [ -n "$APIFOX_PROJECT_ID" ]; then
-    echo "✅ 环境变量已配置"
-else
-    echo "❌ 环境变量未配置"
-fi
-```
+1. 命令行显式传参 `--project-id`
+2. 当前仓库 `git config --local apifox.project-id`
+3. 兼容兜底 `APIFOX_PROJECT_ID`（仅为兼容老配置，不推荐）
 
-**工作流程**：
-1. **自动检查**：先 `source ~/.zshrc` 加载环境变量，然后检查 `APIFOX_TOKEN` 和 `APIFOX_PROJECT_ID`
-2. **已配置**：直接调用同步脚本，无需询问用户
-3. **未配置**：提示用户配置，并建议添加到 `~/.zshrc` 或 `~/.bashrc` 中永久生效
+**自动检查流程**：
+1. 先 `source ~/.zshrc 2>/dev/null || source ~/.bashrc 2>/dev/null`
+2. 检查 `APIFOX_TOKEN`
+3. 检查当前仓库是否已配置 `git config --local apifox.project-id`
+4. 只有仓库绑定缺失时，才提示用户补配置；不要默认要求用户改全局 `APIFOX_PROJECT_ID`
 
-**使用同步脚本**（必须先 source shell 配置）：
+**推荐配置方式**：
 
 ```bash
-# 正确方式：先 source 再调用
-source ~/.zshrc 2>/dev/null || source ~/.bashrc 2>/dev/null
-~/.claude/skills/apifox-sync/scripts/sync-to-apifox.sh --file "/path/to/openapi.json"
-```
-
-**如果环境变量未配置，提示用户**：
-```
-❌ Apifox 凭证未配置
-
-请将以下内容添加到 ~/.zshrc（或 ~/.bashrc）中：
-
+# 全局配置 Token
 export APIFOX_TOKEN="your_token"
-export APIFOX_PROJECT_ID="your_project_id"
 
-然后执行 source ~/.zshrc 使其生效。
+# 在当前仓库绑定项目
+git config --local apifox.project-id "4032930"
+git config --local apifox.endpoint-folder-id "76"
+git config --local apifox.schema-folder-id "60"
+```
 
-获取凭证：
-- Token: https://apifox-openapi.apifox.cn/doc-4296599
-- Project ID: 项目 URL 中的数字，如 https://app.apifox.com/project/1234567
+**使用同步脚本**：
 
-配置到系统环境变量后，后续同步将自动使用，无需重复设置。
+```bash
+source ~/.zshrc 2>/dev/null || source ~/.bashrc 2>/dev/null
+./scripts/sync-to-apifox.sh --file "/path/to/openapi.json"
+```
+
+**如果仓库绑定缺失，提示用户**：
+```
+❌ 当前仓库未配置 Apifox project-id
+
+请在仓库目录执行：
+
+git config --local apifox.project-id "your_project_id"
+
+如需文件夹绑定，可继续执行：
+git config --local apifox.endpoint-folder-id "76"
+git config --local apifox.schema-folder-id "60"
+
+获取 project-id：
+- 打开 Apifox 项目 URL，例如 https://app.apifox.com/project/1234567
+- 其中 1234567 就是项目 ID
 ```
 
 脚本会自动：
-- 检查环境变量 `APIFOX_TOKEN` 和 `APIFOX_PROJECT_ID`
+- 检查全局 Token
+- 检查 repo-local 的 `apifox.project-id`
 - 上传到 Apifox API
 - 验证响应并报告结果
 
@@ -222,29 +229,36 @@ router.delete('/:topic_id', handler.delete)
 - 如果上传失败，保存生成的OpenAPI文件供手动导入
 - 如果遇到不认识的代码结构，询问用户
 
-## 凭证配置
+## 配置约定
 
-**推荐：配置到系统环境变量（一次配置，永久生效）**
-
-将以下内容添加到 `~/.zshrc`（macOS/Linux zsh）或 `~/.bashrc`（bash）：
+**推荐：Token 全局配置，Project ID 仓库配置**
 
 ```bash
-# Apifox API 凭证
+# 全局凭证
 export APIFOX_TOKEN="apifox_xxx"
-export APIFOX_PROJECT_ID="1234567"
+
+# 进入目标仓库后执行
+git config --local apifox.project-id "4032930"
+git config --local apifox.endpoint-folder-id "76"
+git config --local apifox.schema-folder-id "60"
 ```
 
-然后执行 `source ~/.zshrc` 使其生效。
+这样可以避免多个仓库共用同一个全局 `APIFOX_PROJECT_ID`，把接口同步错项目。
 
-**获取凭证**：
-- Token: https://apifox-openapi.apifox.cn/doc-4296599 （Apifox 官方文档）
-- Project ID: 项目 URL 中的数字，如 `https://app.apifox.com/project/1234567`
+**兼容兜底**：
+- 仍可读取 `APIFOX_PROJECT_ID`
+- 仅在无法设置 repo-local config 时临时使用
+- 一旦命中该兜底，脚本会给出迁移警告
 
-**交互式配置**（可选）：
+**交互式配置**：
 ```bash
-cd ~/.claude/skills/apifox-sync/scripts
+cd ./scripts
 ./setup.sh
 ```
+
+`setup.sh` 会：
+- 将 `APIFOX_TOKEN` 保存到 `~/.apifox/config.sh`
+- 将 `project-id`、folder id 写入当前仓库的 `git config --local`
 
 ## 常见错误
 
@@ -262,5 +276,5 @@ cd ~/.claude/skills/apifox-sync/scripts
 - [ ] Schema 中排除了 `json:"-"` 敏感字段
 - [ ] 提供了真实的 example 数据（不是占位符）
 - [ ] 所有错误响应都已包含（400, 401, 404, 500等）
-- [ ] Token 和 Project ID 配置正确
+- [ ] Token 已全局配置，且当前仓库的 `apifox.project-id` 已绑定
 - [ ] 上传成功并在 Apifox 中可见

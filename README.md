@@ -31,20 +31,29 @@
 
 ## 安装
 
-Skill已安装在：`~/.claude/skills/apifox-sync/`
+Skill 目录：当前仓库根目录
 
 ### 配置Apifox凭证
 
+推荐采用“两层配置”：
+- `APIFOX_TOKEN` 作为用户级凭证，全局保存
+- `project-id` 作为仓库级绑定，写入目标仓库的 git local config
+
 **使用交互式配置向导（推荐）**：
 ```bash
-cd ~/.claude/skills/apifox-sync/scripts
+cd ./scripts
 ./setup.sh
 ```
 
-**或手动设置环境变量**：
+**或手动配置**：
 ```bash
+# 全局 Token
 export APIFOX_TOKEN="your_access_token_here"
-export APIFOX_PROJECT_ID="your_project_id_here"
+
+# 在目标仓库内执行
+git config --local apifox.project-id "4032930"
+git config --local apifox.endpoint-folder-id "76"
+git config --local apifox.schema-folder-id "60"
 ```
 
 ### 获取凭证
@@ -58,6 +67,16 @@ export APIFOX_PROJECT_ID="your_project_id_here"
    - 打开你的Apifox项目
    - 从URL获取：`https://app.apifox.com/project/1234567`
    - `1234567` 就是项目ID
+
+## 配置优先级
+
+同步脚本按以下顺序决定目标项目：
+
+1. `--project-id`
+2. 当前仓库 `git config --local apifox.project-id`
+3. `APIFOX_PROJECT_ID`（仅兼容兜底，不推荐）
+
+这样做的原因是 `project-id` 本质上是仓库绑定，不能和全局 shell 环境耦合，否则多个仓库很容易同步到错误项目。
 
 ## 使用方法
 
@@ -125,14 +144,14 @@ Claude: [分析所有相关 handler 文件]
 ## 文件结构
 
 ```
-~/.claude/skills/apifox-sync/
+apifox-sync/
 ├── SKILL.md                      # 主 Skill 文件
 ├── README.md                     # 使用说明
 ├── reference.md                  # 高级用法和 API 文档
 ├── VALIDATION.md                 # 验证清单
 ├── scripts/
 │   ├── sync-to-apifox.sh        # 同步脚本（核心）
-│   ├── setup.sh                 # 配置向导
+│   ├── setup.sh                 # 配置向导（Token 全局，Project ID 仓库级）
 │   ├── config.example.sh        # 配置示例
 │   └── README.md                # 脚本使用说明
 └── templates/
@@ -208,6 +227,9 @@ func (h *topicHandler) listTopics(c *gin.Context) {
 ### Q: 上传失败，提示401错误？
 **A**: Token无效或过期，重新生成Access Token
 
+### Q: 为什么不再推荐全局 `APIFOX_PROJECT_ID`？
+**A**: 因为同一个终端会操作多个仓库。把 project-id 放在全局环境变量里，很容易把 A 仓库的接口同步到 B 项目。现在推荐把它写进仓库本地 git config。
+
 ### Q: 生成的OpenAPI文档不完整？
 **A**: 可能原因：
 1. 代码结构不标准
@@ -224,10 +246,10 @@ func (h *topicHandler) listTopics(c *gin.Context) {
 
 ```bash
 # 检查文件是否存在
-ls -la ~/.claude/skills/apifox-sync/SKILL.md
+ls -la ./SKILL.md
 
 # 查看frontmatter
-head -n 5 ~/.claude/skills/apifox-sync/SKILL.md
+head -n 5 ./SKILL.md
 
 # 应该看到：
 # ---
@@ -247,14 +269,14 @@ cat *-openapi.json | jq '.'
 
 2. **手动测试同步脚本**：
 ```bash
-cd ~/.claude/skills/apifox-sync/scripts
+cd ./scripts
 ./sync-to-apifox.sh --file "/path/to/openapi.json"
 ```
 
 3. **验证环境变量**：
 ```bash
 echo $APIFOX_TOKEN
-echo $APIFOX_PROJECT_ID
+git config --local --get apifox.project-id
 ```
 
 ## 贡献

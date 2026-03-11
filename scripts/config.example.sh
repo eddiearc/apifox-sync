@@ -6,23 +6,25 @@
 # 必需配置
 # ============================================
 
-# Apifox Access Token
+# Apifox Access Token（全局凭证）
 # 获取方式: Apifox -> 个人设置 -> API 访问令牌
 export APIFOX_TOKEN="apifox_your_token_here"
 
-# Apifox 项目 ID
-# 从项目 URL 获取，例如: https://app.apifox.com/project/1234567
-export APIFOX_PROJECT_ID="your_project_id"
-
 # ============================================
-# 可选配置
+# 推荐的仓库级配置
 # ============================================
 
-# 接口目标文件夹 ID (不设置则导入到根目录)
-# export APIFOX_ENDPOINT_FOLDER_ID="76"
+# 在目标仓库内执行以下命令，将 Project ID 绑定到仓库而不是全局 shell：
+#
+#   git config --local apifox.project-id "4032930"
+#   git config --local apifox.endpoint-folder-id "76"
+#   git config --local apifox.schema-folder-id "60"
+#
+# 也可以在单次同步时使用 --project-id 覆盖。
 
-# Schema 目标文件夹 ID (不设置则导入到根目录)
-# export APIFOX_SCHEMA_FOLDER_ID="60"
+# ============================================
+# 可选全局默认行为
+# ============================================
 
 # 接口覆盖策略
 # 可选值: deleteUnmatchedResources | merge | onlyNew
@@ -39,15 +41,10 @@ export APIFOX_PROJECT_ID="your_project_id"
 # export APIFOX_PREPEND_BASE_PATH="true"
 
 # ============================================
-# 使用示例
+# 兼容兜底（不推荐）
 # ============================================
 
-# 1. 复制并编辑配置文件:
-#    cp config.example.sh config.sh
-#    vim config.sh  # 填入实际值
-#
-# 2. 加载配置:
-#    source config.sh
-#
-# 3. 运行同步:
-#    ./sync-to-apifox.sh --file "./openapi.json"
+# 只有在无法修改仓库配置时，才临时使用以下全局变量：
+# export APIFOX_PROJECT_ID="4032930"
+# export APIFOX_ENDPOINT_FOLDER_ID="76"
+# export APIFOX_SCHEMA_FOLDER_ID="60"

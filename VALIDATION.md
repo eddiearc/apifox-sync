@@ -4,7 +4,7 @@
 
 ### 文件结构
 ```
-~/.claude/skills/apifox-sync/
+apifox-sync/
 ├── SKILL.md                     ✅ 主 Skill 文件
 ├── README.md                    ✅ 使用说明
 ├── reference.md                 ✅ 高级用法
@@ -24,7 +24,7 @@
 ```yaml
 ---
 name: apifox-sync                     # ✅ 小写+连字符
-description: 从代码中提取API接口...    # ✅ 详细描述，包含触发词
+description: Use when需要把当前仓库的... # ✅ 详细描述，包含触发词和仓库上下文
 ---
 ```
 
@@ -81,28 +81,29 @@ description: 从代码中提取API接口...    # ✅ 详细描述，包含触发
 ### 必需配置
 **推荐使用 setup.sh 交互式配置**：
 ```bash
-cd ~/.claude/skills/apifox-sync/scripts
+cd ./scripts
 ./setup.sh
 ```
 
-或手动设置环境变量：
+或手动配置：
 ```bash
 export APIFOX_TOKEN="your_token_here"
-export APIFOX_PROJECT_ID="your_project_id"
+git config --local apifox.project-id "your_project_id"
 ```
 
 ### 获取凭证
 1. **Token**: Apifox → 账户设置 → API 访问令牌
 2. **Project ID**: 从项目 URL 获取（如 `.../project/1234567`）
+3. **仓库绑定**: 在目标仓库执行 `git config --local apifox.project-id "<project_id>"`
 
 ## 🚀 测试步骤
 
 ### 步骤1：验证安装
 ```bash
-ls -la ~/.claude/skills/apifox-sync/SKILL.md
+ls -la ./SKILL.md
 # 应该看到文件存在
 
-head -n 5 ~/.claude/skills/apifox-sync/SKILL.md
+head -n 5 ./SKILL.md
 # 应该看到正确的frontmatter
 ```
 
@@ -127,6 +128,7 @@ Claude 应该：
 - 生成的 `*-openapi.json` 文件
 - 成功同步的反馈信息
 - Apifox 项目中出现新接口
+- `./sync-to-apifox.sh --print-config` 能显示当前仓库绑定的 project-id
 
 ## 📊 功能清单
 
@@ -139,6 +141,7 @@ Claude 应该：
 - [x] 使用 sync-to-apifox.sh 脚本上传文档
 - [x] 处理多种 HTTP 状态码的响应
 - [x] 提供详细的成功/失败反馈
+- [x] 支持仓库级 project-id 绑定和 CLI 显式覆盖
 
 ### 高级功能
 - [x] 批量同步多个模块
@@ -149,6 +152,7 @@ Claude 应该：
 ### 安全功能
 - [x] 排除敏感字段（json:"-"）
 - [x] Token 安全存储（环境变量）
+- [x] Project ID 与文件夹配置支持仓库级隔离
 - [x] 多种覆盖策略（OVERWRITE_EXISTING/MERGE_IF_NOT_EXISTS/ONLY_NEW）
 - [x] 上传前可 review 生成的文档
 
@@ -206,6 +210,7 @@ Claude: [分析所有模块]
    - 需要Apifox Access Token
    - 需要有项目编辑权限
    - 需要git仓库
+   - 当前仓库应配置 `apifox.project-id`，否则需使用 `--project-id`
 
 ## 🎓 最佳实践建议
 
@@ -214,6 +219,7 @@ Claude: [分析所有模块]
 3. **Review 文档**：同步前检查生成的 OpenAPI 文件
 4. **使用标准结构**：遵循框架的标准路由注册方式
 5. **标记敏感字段**：使用 `json:"-"` 标记不应暴露的字段
+6. **仓库隔离**：为每个仓库单独设置 `git config --local apifox.project-id`
 
 ## ✅ 验证结果
 
@@ -223,7 +229,8 @@ Claude: [分析所有模块]
 1. 使用 `scripts/setup.sh` 配置 Apifox 凭证
 2. 重启 Claude Code 以加载 Skill
 3. 测试触发："帮我同步接口到 apifox"
-4. 验证 Apifox 中是否出现新接口
+4. 运行 `./scripts/sync-to-apifox.sh --print-config` 验证当前仓库绑定
+5. 验证 Apifox 中是否出现新接口
 
 ---
 
