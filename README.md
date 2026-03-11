@@ -37,7 +37,7 @@ Skill 目录：当前仓库根目录
 
 推荐采用“两层配置”：
 - `APIFOX_TOKEN` 作为用户级凭证，全局保存
-- `project-id` 作为仓库级绑定，写入目标仓库的 git local config
+- `APIFOX_PROJECT_ID` 作为仓库级绑定，写入目标仓库的 `.apifox/project.env`
 
 **使用交互式配置向导（推荐）**：
 ```bash
@@ -51,9 +51,10 @@ cd ./scripts
 export APIFOX_TOKEN="your_access_token_here"
 
 # 在目标仓库内执行
-git config --local apifox.project-id "4032930"
-git config --local apifox.endpoint-folder-id "76"
-git config --local apifox.schema-folder-id "60"
+mkdir -p .apifox
+cat > .apifox/project.env <<'EOF'
+APIFOX_PROJECT_ID="4032930"
+EOF
 ```
 
 ### 获取凭证
@@ -73,9 +74,9 @@ git config --local apifox.schema-folder-id "60"
 同步脚本按以下顺序决定目标项目：
 
 1. `--project-id`
-2. 当前仓库 `git config --local apifox.project-id`
+2. 当前仓库 `.apifox/project.env` 中的 `APIFOX_PROJECT_ID`
 
-这样做的原因是 `project-id` 本质上是仓库绑定，不能和全局 shell 环境耦合，否则多个仓库很容易同步到错误项目。
+这样做的原因是 `project-id` 本质上是仓库绑定，而且应该被仓库使用者共享读取，不能和个人 shell 会话耦合。
 
 ## 使用方法
 
@@ -150,11 +151,12 @@ apifox-sync/
 ├── VALIDATION.md                 # 验证清单
 ├── scripts/
 │   ├── sync-to-apifox.sh        # 同步脚本（核心）
-│   ├── setup.sh                 # 配置向导（Token 全局，Project ID 仓库级）
+│   ├── setup.sh                 # 配置向导（Token 全局，Project ID 写入 .apifox/project.env）
 │   ├── config.example.sh        # 配置示例
 │   └── README.md                # 脚本使用说明
 └── templates/
-    └── openapi-template.json    # OpenAPI 3.0 文档模板
+    ├── openapi-template.json    # OpenAPI 3.0 文档模板
+    └── project.env.example      # 仓库级 project 绑定示例
 ```
 
 ## 工作流程
@@ -226,8 +228,8 @@ func (h *topicHandler) listTopics(c *gin.Context) {
 ### Q: 上传失败，提示401错误？
 **A**: Token无效或过期，重新生成Access Token
 
-### Q: 为什么不能再用全局 `APIFOX_PROJECT_ID`？
-**A**: 因为同一个终端会操作多个仓库。把 project-id 放在全局环境变量里，很容易把 A 仓库的接口同步到 B 项目。现在这个 skill 只接受仓库本地 git config 或 `--project-id` 显式传参。
+### Q: 为什么要放到 `.apifox/project.env`？
+**A**: 因为这个值需要和仓库绑定，而且要让仓库使用者都能读到。放在 `.git/config` 只有本机可见，放在全局环境变量又会跨仓库串项目；仓库内配置文件才符合这个约束。
 
 ### Q: 生成的OpenAPI文档不完整？
 **A**: 可能原因：
@@ -275,7 +277,7 @@ cd ./scripts
 3. **验证环境变量**：
 ```bash
 echo $APIFOX_TOKEN
-git config --local --get apifox.project-id
+cat ./.apifox/project.env
 ```
 
 ## 贡献

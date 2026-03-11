@@ -14,11 +14,12 @@ export APIFOX_TOKEN="apifox_your_token_here"
 # 推荐的仓库级配置
 # ============================================
 
-# 在目标仓库内执行以下命令，将 Project ID 绑定到仓库而不是全局 shell：
+# 在目标仓库内创建以下文件，将 Project ID 绑定到仓库而不是全局 shell：
 #
-#   git config --local apifox.project-id "4032930"
-#   git config --local apifox.endpoint-folder-id "76"
-#   git config --local apifox.schema-folder-id "60"
+#   mkdir -p .apifox
+#   cat > .apifox/project.env <<'EOF'
+#   APIFOX_PROJECT_ID="4032930"
+#   EOF
 #
 # 也可以在单次同步时使用 --project-id 覆盖。
 

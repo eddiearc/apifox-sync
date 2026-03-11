@@ -17,15 +17,17 @@ echo -e "${BLUE}   Apifox 同步工具 - 快速设置${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-# 全局配置只保存 Token；项目绑定保存到当前仓库的 git local config。
+# 全局配置只保存 Token；项目绑定保存到当前仓库的 .apifox/project.env。
 CONFIG_FILE="$HOME/.apifox/config.sh"
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+REPO_PROJECT_DIR="$REPO_ROOT/.apifox"
+REPO_PROJECT_FILE="$REPO_PROJECT_DIR/project.env"
 
 if [ -z "$REPO_ROOT" ]; then
     echo -e "${RED}❌ 当前目录不在 git 仓库内。请切到目标仓库后再运行 setup.sh。${NC}"
     echo "推荐配置方式:"
     echo "  1. 在仓库目录运行本脚本"
-    echo "  2. 或手动执行: git config --local apifox.project-id <project_id>"
+    echo "  2. 或手动创建: .apifox/project.env"
     exit 1
 fi
 
@@ -68,7 +70,7 @@ fi
 # ============================================
 echo ""
 echo -e "${BLUE}步骤 2: 绑定当前仓库的 Apifox 项目 ID${NC}"
-echo "这个 Project ID 将写入当前仓库的 git local config，不再依赖全局环境变量。"
+echo "这个 Project ID 将写入当前仓库的 .apifox/project.env，仓库使用者都能读到。"
 echo "请按以下步骤获取 Project ID:"
 echo "  1. 在 Apifox 中打开你的项目"
 echo "  2. 从浏览器地址栏复制项目 ID"
@@ -83,20 +85,10 @@ if [ -z "$project_id" ]; then
 fi
 
 # ============================================
-# 3. 可选配置
+# 3. 保存配置
 # ============================================
 echo ""
-echo -e "${BLUE}步骤 3: 当前仓库的可选配置 (直接回车跳过)${NC}"
-echo ""
-
-read -p "接口目标文件夹 ID (可选): " endpoint_folder_id
-read -p "Schema 目标文件夹 ID (可选): " schema_folder_id
-
-# ============================================
-# 4. 保存配置
-# ============================================
-echo ""
-echo -e "${BLUE}步骤 4: 保存全局 Token + 仓库绑定${NC}"
+echo -e "${BLUE}步骤 3: 保存全局 Token + 仓库绑定${NC}"
 
 if [ -n "${apifox_token:-}" ]; then
     mkdir -p "$HOME/.apifox"
@@ -116,28 +108,21 @@ EOF
     echo -e "${GREEN}✅ 全局 Token 已保存到: $CONFIG_FILE${NC}"
 fi
 
-git -C "$REPO_ROOT" config --local apifox.project-id "$project_id"
+mkdir -p "$REPO_PROJECT_DIR"
+cat > "$REPO_PROJECT_FILE" <<EOF
+# Apifox 仓库绑定配置
+# 由快速设置脚本自动生成于 $(date)
 
-if [ -n "$endpoint_folder_id" ]; then
-    git -C "$REPO_ROOT" config --local apifox.endpoint-folder-id "$endpoint_folder_id"
-else
-    git -C "$REPO_ROOT" config --local --unset apifox.endpoint-folder-id 2>/dev/null || true
-fi
+APIFOX_PROJECT_ID="$project_id"
+EOF
 
-if [ -n "$schema_folder_id" ]; then
-    git -C "$REPO_ROOT" config --local apifox.schema-folder-id "$schema_folder_id"
-else
-    git -C "$REPO_ROOT" config --local --unset apifox.schema-folder-id 2>/dev/null || true
-fi
-
-echo -e "${GREEN}✅ 当前仓库的 Apifox 绑定已写入 git local config${NC}"
-echo "   git config --local apifox.project-id $project_id"
+echo -e "${GREEN}✅ 当前仓库的 Apifox 绑定已写入: $REPO_PROJECT_FILE${NC}"
 echo ""
 
 # ============================================
-# 5. 测试连接
+# 4. 测试连接
 # ============================================
-echo -e "${BLUE}步骤 5: 测试连接${NC}"
+echo -e "${BLUE}步骤 4: 测试连接${NC}"
 echo "正在测试 Apifox API 连接..."
 
 # 加载配置
@@ -176,7 +161,7 @@ echo "1. 在 shell 会话中加载全局 Token 配置:"
 echo -e "   ${YELLOW}source $CONFIG_FILE${NC}"
 echo ""
 echo "2. 确认当前仓库绑定:"
-echo -e "   ${YELLOW}git config --local --get-regexp '^apifox\\.'${NC}"
+echo -e "   ${YELLOW}cat $REPO_PROJECT_FILE${NC}"
 echo ""
 echo "3. 从本地文件同步:"
 echo -e "   ${YELLOW}./sync-to-apifox.sh --file \"./openapi.json\"${NC}"

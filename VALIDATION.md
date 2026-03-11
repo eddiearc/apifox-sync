@@ -15,7 +15,8 @@ apifox-sync/
 │   ├── config.example.sh       ✅ 配置示例
 │   └── README.md               ✅ 脚本文档
 └── templates/
-    └── openapi-template.json   ✅ OpenAPI 3.0 模板
+    ├── openapi-template.json   ✅ OpenAPI 3.0 模板
+    └── project.env.example     ✅ 仓库级绑定示例
 ```
 
 ### 规范验证
@@ -88,13 +89,14 @@ cd ./scripts
 或手动配置：
 ```bash
 export APIFOX_TOKEN="your_token_here"
-git config --local apifox.project-id "your_project_id"
+mkdir -p .apifox
+echo 'APIFOX_PROJECT_ID="your_project_id"' > .apifox/project.env
 ```
 
 ### 获取凭证
 1. **Token**: Apifox → 账户设置 → API 访问令牌
 2. **Project ID**: 从项目 URL 获取（如 `.../project/1234567`）
-3. **仓库绑定**: 在目标仓库执行 `git config --local apifox.project-id "<project_id>"`
+3. **仓库绑定**: 在目标仓库创建 `.apifox/project.env`
 
 ## 🚀 测试步骤
 
@@ -141,7 +143,7 @@ Claude 应该：
 - [x] 使用 sync-to-apifox.sh 脚本上传文档
 - [x] 处理多种 HTTP 状态码的响应
 - [x] 提供详细的成功/失败反馈
-- [x] 支持仓库级 project-id 绑定和 CLI 显式覆盖
+- [x] 支持仓库级 `.apifox/project.env` 绑定和 CLI 显式覆盖
 
 ### 高级功能
 - [x] 批量同步多个模块
@@ -210,7 +212,7 @@ Claude: [分析所有模块]
    - 需要Apifox Access Token
    - 需要有项目编辑权限
    - 需要git仓库
-   - 当前仓库应配置 `apifox.project-id`，否则需使用 `--project-id`
+   - 当前仓库应配置 `.apifox/project.env`，否则需使用 `--project-id`
 
 ## 🎓 最佳实践建议
 
@@ -219,7 +221,7 @@ Claude: [分析所有模块]
 3. **Review 文档**：同步前检查生成的 OpenAPI 文件
 4. **使用标准结构**：遵循框架的标准路由注册方式
 5. **标记敏感字段**：使用 `json:"-"` 标记不应暴露的字段
-6. **仓库隔离**：为每个仓库单独设置 `git config --local apifox.project-id`
+6. **仓库隔离**：为每个仓库单独维护 `.apifox/project.env`
 
 ## ✅ 验证结果
 

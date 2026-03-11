@@ -73,18 +73,18 @@ description: Use when需要把当前仓库的 REST API 变更同步到 Apifox，
 **⚠️ 重要：区分“全局凭证”和“仓库绑定”**
 
 - `APIFOX_TOKEN` 是用户级凭证，适合保存在 `~/.zshrc`、`~/.bashrc` 或 `~/.apifox/config.sh`
-- `project-id` 是仓库级绑定，不应该放进全局 shell 环境变量
+- `APIFOX_PROJECT_ID` 是仓库级绑定，应该保存在仓库内 `.apifox/project.env`
 
 在调用同步脚本前，按以下顺序解析目标项目：
 
 1. 命令行显式传参 `--project-id`
-2. 当前仓库 `git config --local apifox.project-id`
+2. 当前仓库 `.apifox/project.env` 中的 `APIFOX_PROJECT_ID`
 
 **自动检查流程**：
 1. 先 `source ~/.zshrc 2>/dev/null || source ~/.bashrc 2>/dev/null`
 2. 检查 `APIFOX_TOKEN`
-3. 检查当前仓库是否已配置 `git config --local apifox.project-id`
-4. 只有仓库绑定缺失时，才提示用户补配置
+3. 检查当前仓库是否存在 `.apifox/project.env`
+4. 如果缺失，则向用户询问 project id，并帮用户创建 `.apifox/project.env`
 
 **推荐配置方式**：
 
@@ -93,9 +93,10 @@ description: Use when需要把当前仓库的 REST API 变更同步到 Apifox，
 export APIFOX_TOKEN="your_token"
 
 # 在当前仓库绑定项目
-git config --local apifox.project-id "4032930"
-git config --local apifox.endpoint-folder-id "76"
-git config --local apifox.schema-folder-id "60"
+mkdir -p .apifox
+cat > .apifox/project.env <<'EOF'
+APIFOX_PROJECT_ID="4032930"
+EOF
 ```
 
 **使用同步脚本**：
@@ -111,11 +112,10 @@ source ~/.zshrc 2>/dev/null || source ~/.bashrc 2>/dev/null
 
 请在仓库目录执行：
 
-git config --local apifox.project-id "your_project_id"
-
-如需文件夹绑定，可继续执行：
-git config --local apifox.endpoint-folder-id "76"
-git config --local apifox.schema-folder-id "60"
+mkdir -p .apifox
+cat > .apifox/project.env <<'EOF'
+APIFOX_PROJECT_ID="your_project_id"
+EOF
 
 获取 project-id：
 - 打开 Apifox 项目 URL，例如 https://app.apifox.com/project/1234567
@@ -124,7 +124,7 @@ git config --local apifox.schema-folder-id "60"
 
 脚本会自动：
 - 检查全局 Token
-- 检查 repo-local 的 `apifox.project-id`
+- 检查仓库内 `.apifox/project.env`
 - 上传到 Apifox API
 - 验证响应并报告结果
 
@@ -237,12 +237,13 @@ router.delete('/:topic_id', handler.delete)
 export APIFOX_TOKEN="apifox_xxx"
 
 # 进入目标仓库后执行
-git config --local apifox.project-id "4032930"
-git config --local apifox.endpoint-folder-id "76"
-git config --local apifox.schema-folder-id "60"
+mkdir -p .apifox
+cat > .apifox/project.env <<'EOF'
+APIFOX_PROJECT_ID="4032930"
+EOF
 ```
 
-这样可以避免多个仓库共用同一个全局 project-id，把接口同步错项目。
+这样仓库里的所有使用者都能读到同一个 project-id，同时不会把个人 token 提交进仓库。
 
 **交互式配置**：
 ```bash
@@ -252,7 +253,7 @@ cd ./scripts
 
 `setup.sh` 会：
 - 将 `APIFOX_TOKEN` 保存到 `~/.apifox/config.sh`
-- 将 `project-id`、folder id 写入当前仓库的 `git config --local`
+- 将 `APIFOX_PROJECT_ID` 写入当前仓库的 `.apifox/project.env`
 
 ## 常见错误
 
@@ -270,5 +271,5 @@ cd ./scripts
 - [ ] Schema 中排除了 `json:"-"` 敏感字段
 - [ ] 提供了真实的 example 数据（不是占位符）
 - [ ] 所有错误响应都已包含（400, 401, 404, 500等）
-- [ ] Token 已全局配置，且当前仓库的 `apifox.project-id` 已绑定
+- [ ] Token 已全局配置，且当前仓库存在 `.apifox/project.env`
 - [ ] 上传成功并在 Apifox 中可见

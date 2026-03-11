@@ -6,7 +6,7 @@
 #   APIFOX_TOKEN               - Apifox Access Token (必需，全局凭证)
 #   项目配置优先级:
 #     1. --project-id / --endpoint-folder / --schema-folder 显式传参
-#     2. 当前仓库 git config --local 中的 apifox.* 配置
+#     2. 当前仓库 .apifox/project.env 中的 APIFOX_PROJECT_ID
 #     3. APIFOX_ENDPOINT_FOLDER_ID / APIFOX_SCHEMA_FOLDER_ID 仅作为文件夹配置兼容兜底
 #
 # 使用方法:
@@ -51,6 +51,7 @@ PROJECT_ID_SOURCE=""
 REPO_ROOT=""
 REPO_ROOT_OVERRIDE=""
 PRINT_CONFIG_ONLY="false"
+REPO_PROJECT_ENV_REL=".apifox/project.env"
 
 # 显示帮助信息
 show_help() {
@@ -71,7 +72,7 @@ ${YELLOW}选项:${NC}
                                       可选值: KEEP_EXISTING | OVERWRITE_IF_DIFFERENT | OVERWRITE_EXISTING
     --endpoint-folder <ID>            接口目标文件夹 ID
     --schema-folder <ID>              Schema 目标文件夹 ID
-    --repo-root <PATH>                显式指定仓库根目录，用于读取 repo-local 配置
+    --repo-root <PATH>                显式指定仓库根目录，用于读取仓库内配置
     --print-config                    只打印解析后的配置，不执行上传
     --no-update-folder                不更新已变更接口的文件夹位置
     --no-prepend-base-path            不在接口路径前添加 basePath
@@ -83,10 +84,9 @@ ${YELLOW}环境变量:${NC}
     APIFOX_SCHEMA_FOLDER_ID           Schema 目标文件夹 ID (兼容兜底)
 
 ${YELLOW}推荐配置方式:${NC}
-    # 在仓库内绑定项目，避免多个仓库共用一个全局 PROJECT_ID
-    git config --local apifox.project-id 4032930
-    git config --local apifox.endpoint-folder-id 76
-    git config --local apifox.schema-folder-id 60
+    # 在仓库内创建共享配置，所有使用者都能读到
+    mkdir -p .apifox
+    echo 'APIFOX_PROJECT_ID=4032930' > .apifox/project.env
 
 ${YELLOW}覆盖策略说明:${NC}
     接口覆盖策略 (endpoint-overwrite):
@@ -104,7 +104,8 @@ ${YELLOW}示例:${NC}
     export APIFOX_TOKEN="apifox_xxx"
 
     # 在当前仓库设置 Apifox 项目绑定（推荐）
-    git config --local apifox.project-id 1234567
+    mkdir -p .apifox
+    echo 'APIFOX_PROJECT_ID=1234567' > .apifox/project.env
 
     # 从 URL 导入
     $0 --url "https://petstore.swagger.io/v2/swagger.json"
@@ -170,27 +171,47 @@ resolve_repo_root() {
     return 1
 }
 
+read_env_file_value() {
+    local file_path="$1"
+    local key="$2"
+    local line
+    line=$(grep -E "^[[:space:]]*${key}=" "$file_path" 2>/dev/null | tail -n1 || true)
+    if [ -z "$line" ]; then
+        return 1
+    fi
+
+    line="${line#*=}"
+    line="${line%%#*}"
+    line="$(printf '%s' "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+    line="${line%\"}"
+    line="${line#\"}"
+    line="${line%\'}"
+    line="${line#\'}"
+    printf '%s\n' "$line"
+}
+
 load_repo_config() {
     REPO_ROOT=$(resolve_repo_root || true)
     if [ -z "$REPO_ROOT" ]; then
         return 0
     fi
 
+    local repo_project_env="$REPO_ROOT/$REPO_PROJECT_ENV_REL"
     if [ -z "$PROJECT_ID" ]; then
         local repo_project_id
-        repo_project_id=$(git -C "$REPO_ROOT" config --local --get apifox.project-id || true)
+        repo_project_id=$(read_env_file_value "$repo_project_env" "APIFOX_PROJECT_ID" || true)
         if [ -n "$repo_project_id" ]; then
             PROJECT_ID="$repo_project_id"
-            PROJECT_ID_SOURCE="git local config ($REPO_ROOT)"
+            PROJECT_ID_SOURCE="$REPO_PROJECT_ENV_REL ($REPO_ROOT)"
         fi
     fi
 
     if [ -z "$TARGET_ENDPOINT_FOLDER_ID" ]; then
-        TARGET_ENDPOINT_FOLDER_ID=$(git -C "$REPO_ROOT" config --local --get apifox.endpoint-folder-id || true)
+        TARGET_ENDPOINT_FOLDER_ID=$(read_env_file_value "$repo_project_env" "APIFOX_ENDPOINT_FOLDER_ID" || true)
     fi
 
     if [ -z "$TARGET_SCHEMA_FOLDER_ID" ]; then
-        TARGET_SCHEMA_FOLDER_ID=$(git -C "$REPO_ROOT" config --local --get apifox.schema-folder-id || true)
+        TARGET_SCHEMA_FOLDER_ID=$(read_env_file_value "$repo_project_env" "APIFOX_SCHEMA_FOLDER_ID" || true)
     fi
 }
 
@@ -211,7 +232,7 @@ check_required_config() {
     fi
 
     if [ -z "$PROJECT_ID" ]; then
-        error_exit "未找到 Apifox 项目 ID。请使用以下任一方式配置:\n1. 在当前仓库执行: git config --local apifox.project-id \"your_project_id\"\n2. 运行脚本时传入: --project-id \"your_project_id\""
+        error_exit "未找到 Apifox 项目 ID。请使用以下任一方式配置:\n1. 在当前仓库创建文件 .apifox/project.env，并写入 APIFOX_PROJECT_ID=\"your_project_id\"\n2. 运行脚本时传入: --project-id \"your_project_id\""
     fi
 }
 
