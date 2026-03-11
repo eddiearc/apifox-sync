@@ -7,7 +7,7 @@
 #   项目配置优先级:
 #     1. --project-id / --endpoint-folder / --schema-folder 显式传参
 #     2. 当前仓库 git config --local 中的 apifox.* 配置
-#     3. APIFOX_PROJECT_ID / APIFOX_ENDPOINT_FOLDER_ID / APIFOX_SCHEMA_FOLDER_ID (兼容兜底)
+#     3. APIFOX_ENDPOINT_FOLDER_ID / APIFOX_SCHEMA_FOLDER_ID 仅作为文件夹配置兼容兜底
 #
 # 使用方法:
 #   1. 从 URL 导入:
@@ -79,7 +79,6 @@ ${YELLOW}选项:${NC}
 
 ${YELLOW}环境变量:${NC}
     APIFOX_TOKEN                      Apifox Access Token (必需，全局凭证)
-    APIFOX_PROJECT_ID                 Apifox 项目 ID (兼容兜底，不推荐)
     APIFOX_ENDPOINT_FOLDER_ID         接口目标文件夹 ID (兼容兜底)
     APIFOX_SCHEMA_FOLDER_ID           Schema 目标文件夹 ID (兼容兜底)
 
@@ -196,12 +195,6 @@ load_repo_config() {
 }
 
 load_legacy_env_config() {
-    if [ -z "$PROJECT_ID" ] && [ -n "$APIFOX_PROJECT_ID" ]; then
-        PROJECT_ID="$APIFOX_PROJECT_ID"
-        PROJECT_ID_SOURCE="legacy env APIFOX_PROJECT_ID"
-        warning "使用了全局 APIFOX_PROJECT_ID 兜底。建议改为在仓库内执行: git config --local apifox.project-id <project_id>"
-    fi
-
     if [ -z "$TARGET_ENDPOINT_FOLDER_ID" ] && [ -n "$APIFOX_ENDPOINT_FOLDER_ID" ]; then
         TARGET_ENDPOINT_FOLDER_ID="$APIFOX_ENDPOINT_FOLDER_ID"
     fi
@@ -218,7 +211,7 @@ check_required_config() {
     fi
 
     if [ -z "$PROJECT_ID" ]; then
-        error_exit "未找到 Apifox 项目 ID。请使用以下任一方式配置:\n1. 在当前仓库执行: git config --local apifox.project-id \"your_project_id\"\n2. 运行脚本时传入: --project-id \"your_project_id\"\n3. 临时兼容方式: export APIFOX_PROJECT_ID=\"your_project_id\""
+        error_exit "未找到 Apifox 项目 ID。请使用以下任一方式配置:\n1. 在当前仓库执行: git config --local apifox.project-id \"your_project_id\"\n2. 运行脚本时传入: --project-id \"your_project_id\""
     fi
 }
 

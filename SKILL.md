@@ -79,13 +79,12 @@ description: Use when需要把当前仓库的 REST API 变更同步到 Apifox，
 
 1. 命令行显式传参 `--project-id`
 2. 当前仓库 `git config --local apifox.project-id`
-3. 兼容兜底 `APIFOX_PROJECT_ID`（仅为兼容老配置，不推荐）
 
 **自动检查流程**：
 1. 先 `source ~/.zshrc 2>/dev/null || source ~/.bashrc 2>/dev/null`
 2. 检查 `APIFOX_TOKEN`
 3. 检查当前仓库是否已配置 `git config --local apifox.project-id`
-4. 只有仓库绑定缺失时，才提示用户补配置；不要默认要求用户改全局 `APIFOX_PROJECT_ID`
+4. 只有仓库绑定缺失时，才提示用户补配置
 
 **推荐配置方式**：
 
@@ -243,12 +242,7 @@ git config --local apifox.endpoint-folder-id "76"
 git config --local apifox.schema-folder-id "60"
 ```
 
-这样可以避免多个仓库共用同一个全局 `APIFOX_PROJECT_ID`，把接口同步错项目。
-
-**兼容兜底**：
-- 仍可读取 `APIFOX_PROJECT_ID`
-- 仅在无法设置 repo-local config 时临时使用
-- 一旦命中该兜底，脚本会给出迁移警告
+这样可以避免多个仓库共用同一个全局 project-id，把接口同步错项目。
 
 **交互式配置**：
 ```bash

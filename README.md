@@ -74,7 +74,6 @@ git config --local apifox.schema-folder-id "60"
 
 1. `--project-id`
 2. 当前仓库 `git config --local apifox.project-id`
-3. `APIFOX_PROJECT_ID`（仅兼容兜底，不推荐）
 
 这样做的原因是 `project-id` 本质上是仓库绑定，不能和全局 shell 环境耦合，否则多个仓库很容易同步到错误项目。
 
@@ -227,8 +226,8 @@ func (h *topicHandler) listTopics(c *gin.Context) {
 ### Q: 上传失败，提示401错误？
 **A**: Token无效或过期，重新生成Access Token
 
-### Q: 为什么不再推荐全局 `APIFOX_PROJECT_ID`？
-**A**: 因为同一个终端会操作多个仓库。把 project-id 放在全局环境变量里，很容易把 A 仓库的接口同步到 B 项目。现在推荐把它写进仓库本地 git config。
+### Q: 为什么不能再用全局 `APIFOX_PROJECT_ID`？
+**A**: 因为同一个终端会操作多个仓库。把 project-id 放在全局环境变量里，很容易把 A 仓库的接口同步到 B 项目。现在这个 skill 只接受仓库本地 git config 或 `--project-id` 显式传参。
 
 ### Q: 生成的OpenAPI文档不完整？
 **A**: 可能原因：

@@ -40,11 +40,5 @@ export APIFOX_TOKEN="apifox_your_token_here"
 # 是否在接口路径前添加 basePath
 # export APIFOX_PREPEND_BASE_PATH="true"
 
-# ============================================
-# 兼容兜底（不推荐）
-# ============================================
-
-# 只有在无法修改仓库配置时，才临时使用以下全局变量：
-# export APIFOX_PROJECT_ID="4032930"
-# export APIFOX_ENDPOINT_FOLDER_ID="76"
-# export APIFOX_SCHEMA_FOLDER_ID="60"
+# 可选：如果不想写入 git config，也可以在单次运行时显式传参：
+# ./sync-to-apifox.sh --file "./openapi.json" --project-id "4032930"

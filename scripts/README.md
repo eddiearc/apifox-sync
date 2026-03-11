@@ -37,16 +37,14 @@ git config --local apifox.schema-folder-id "60"
 
 1. `--project-id`
 2. 当前仓库的 `git config --local apifox.project-id`
-3. `APIFOX_PROJECT_ID` 兼容兜底
 
-兼容环境变量如下：
+环境变量如下：
 
 ```bash
 # 必需的环境变量
 export APIFOX_TOKEN="apifox_xxx"          # 从 Apifox 获取的 Access Token
 
-# 兼容兜底，不推荐长期使用
-export APIFOX_PROJECT_ID="1234567"        # Apifox 项目 ID
+# 可选的环境变量
 export APIFOX_ENDPOINT_FOLDER_ID="76"     # 接口目标文件夹 ID
 export APIFOX_SCHEMA_FOLDER_ID="60"       # Schema 目标文件夹 ID
 export APIFOX_ENDPOINT_OVERWRITE="OVERWRITE_EXISTING"  # 接口覆盖策略
@@ -207,7 +205,7 @@ git config --local apifox.project-id "1234567"
 ## 注意事项
 
 1. **Token 安全**: 不要将 Token 提交到版本控制系统
-2. **项目隔离**: 不要把 `APIFOX_PROJECT_ID` 长期放在全局环境变量里，优先使用仓库级 git config
+2. **项目隔离**: 不要使用全局 `APIFOX_PROJECT_ID`，项目绑定只通过仓库级 git config 或 `--project-id`
 3. **覆盖策略**: 默认使用 `OVERWRITE_EXISTING` 会覆盖已有接口，可使用 `MERGE_IF_NOT_EXISTS` 保留现有接口
 4. **API 版本**: 脚本使用 Apifox API v1，版本号为 2024-03-28
 5. **OpenAPI 版本**: 推荐使用 OpenAPI 3.0.0 格式，兼容性最好
