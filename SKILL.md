@@ -1,6 +1,6 @@
 ---
 name: apifox-sync
-description: Use when需要把当前仓库的 REST API 变更同步到 Apifox，尤其是新增或修改 handler、route、model、OpenAPI 文档，或用户提到“同步接口”“上传到 apifox”“导入 API 文档”“更新接口文档”时。
+description: Use when syncing REST API changes in the current repository to Apifox, especially after editing handlers, routes, models, or OpenAPI docs, or when the user asks to sync, upload, import, or update API docs in Apifox.
 ---
 
 # Apifox Sync - API接口自动同步工具

@@ -31,7 +31,41 @@
 
 ## 安装
 
-Skill 目录：当前仓库根目录
+推荐直接用 [skills](https://github.com/vercel-labs/skills) CLI 从 GitHub 安装。
+
+同时安装到 Codex 和 Claude Code：
+
+```bash
+npx skills add eddiearc/apifox-sync -g -a codex -a claude-code -y
+```
+
+只安装到 Codex：
+
+```bash
+npx skills add eddiearc/apifox-sync -g -a codex -y
+```
+
+只安装到 Claude Code：
+
+```bash
+npx skills add eddiearc/apifox-sync -g -a claude-code -y
+```
+
+查看是否安装成功：
+
+```bash
+npx skills ls -g
+```
+
+更新：
+
+```bash
+npx skills update
+```
+
+### 手工安装
+
+如果你不想依赖 `skills` CLI，也可以手工复制 skill 目录。
 
 ### 配置Apifox凭证
 
@@ -246,17 +280,11 @@ func (h *topicHandler) listTopics(c *gin.Context) {
 ## 验证Skill安装
 
 ```bash
-# 检查文件是否存在
-ls -la ./SKILL.md
+# 查看全局已安装 skills
+npx skills ls -g
 
-# 查看frontmatter
-head -n 5 ./SKILL.md
-
-# 应该看到：
-# ---
-# name: apifox-sync
-# description: 从代码中提取API接口定义...
-# ---
+# 只查看这个 skill 是否可被仓库识别
+npx skills add eddiearc/apifox-sync --list
 ```
 
 ## 调试
