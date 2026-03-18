@@ -255,6 +255,15 @@ cd ./scripts
 - 将 `APIFOX_TOKEN` 保存到 `~/.apifox/config.sh`
 - 将 `APIFOX_PROJECT_ID` 写入当前仓库的 `.apifox/project.env`
 
+## Gitignore 配置
+
+如果使用仓库级配置（`.apifox/project.env`），确保不被 `.gitignore` 排除：
+
+```gitignore
+.env
+!.apifox/project.env
+```
+
 ## 常见错误
 
 | 错误码 | 原因 | 解决方案 |
